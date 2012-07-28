@@ -2,6 +2,8 @@
   (:require [clojure.zip :as z])
   (:use [clojure.pprint]))
 
+(declare update-min)
+
 (defn mark [loc]
   (z/edit loc #(assoc % :marked true)))
 
@@ -13,6 +15,10 @@
         (recur p)
         loc))))
 
+(defn heap-or-tree-root? [loc]
+  (or (nil? (-> loc z/up))
+      (nil? (-> loc z/up z/node :key))))
+
 (defn balance-node
   ([loc] (balance-node loc []))
   ([loc roots]
@@ -22,21 +28,14 @@
                         (-> loc z/remove))]
        (if (:marked (z/node parent-loc))
          (recur parent-loc new-roots)
-         (let [marked-parent (mark parent-loc)]
-           ;; (pprint "root of marked parent")
-           ;; (pprint (-> marked-parent z/root))
-
-           ;; (pprint "down root of marked parent")
-           ;; (pprint (-> marked-parent z/root z/node))
+         (let [final-parent (if (heap-or-tree-root? parent-loc)
+                              parent-loc
+                              (mark parent-loc))]
            (reduce z/append-child
-                   (root-loc marked-parent)
-                   new-roots))))))
+                   (root-loc final-parent)
+                   (map (fn [x] (assoc x :marked false)) new-roots)))))))
 
-(defn heap-or-tree-root? [loc]
-  (or (nil? (-> loc z/up))
-      (nil? (-> loc z/up z/node :key))))
-
-(defn decrease-key [loc new-key]
+(defn decrease-key [heap loc new-key]
   (let [edited-loc (z/edit
                     loc
                     (fn [node]
@@ -46,7 +45,11 @@
       edited-loc
       (if (> (-> parent z/node :key)
              (-> edited-loc z/node :key))
-        (balance-node edited-loc)
+        (let [balanced-tree (balance-node edited-loc)
+              updated-heap (assoc heap :trees balanced-tree)]
+          (if (< new-key (-> balanced-tree (:minimum-pointer heap) :key))
+            (update-min updated-heap)
+            updated-heap))
         edited-loc))))
 
 (defprotocol IFibonacciHeap
@@ -69,11 +72,10 @@
                             (if (< (:key x) (:key smallest))
                               [x-idx x]
                               [s-idx smallest]))
-                            (map vector (range)
-                                 (z/children trees)))]
+                          (map vector (range)
+                               (z/children trees)))]
       (assoc this :minimum-pointer idx)))
   )
-
 
 (defn- create-zipper []
   (z/zipper (constantly true)
