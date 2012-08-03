@@ -2,9 +2,9 @@
   (:require [clojure.zip :as z])
   (:use [clojure.pprint]))
 
-(declare update-min)
+(declare update-min find-min create-zipper)
 
-(defn mark [loc]
+(defn- mark [loc]
   (z/edit loc #(assoc % :marked true)))
 
 (defn root-loc [loc]
@@ -15,11 +15,24 @@
         (recur p)
         loc))))
 
+(defn- find-min-loc [heap]
+  (reduce (fn [node _] (-> node z/right))
+          (-> heap :trees z/down)
+          (range (-> heap :minimum-pointer))))
+
+(defn- degree [loc]
+  (-> loc z/children count))
+
 (defn heap-or-tree-root? [loc]
   (or (nil? (-> loc z/up))
       (nil? (-> loc z/up z/node :key))))
 
-(defn balance-node
+(defn promote-to-root [loc new-roots]
+  (reduce z/append-child
+          (root-loc loc)
+          (map (fn [x] (assoc x :marked false)) new-roots)))
+
+(defn- balance-node
   ([loc] (balance-node loc []))
   ([loc roots]
      (let [new-roots (conj roots (z/node loc))
@@ -31,9 +44,7 @@
          (let [final-parent (if (heap-or-tree-root? parent-loc)
                               parent-loc
                               (mark parent-loc))]
-           (reduce z/append-child
-                   (root-loc final-parent)
-                   (map (fn [x] (assoc x :marked false)) new-roots)))))))
+           (promote-to-root final-parent new-roots))))))
 
 (defn decrease-key [heap loc new-key]
   (let [edited-loc (z/edit
@@ -41,20 +52,35 @@
                     (fn [node]
                       (assoc node :key new-key)))
         parent (-> edited-loc z/up)]
-    (if (heap-or-tree-root? parent)
-      edited-loc
+    (if (heap-or-tree-root? edited-loc)
+      (update-min (assoc heap :trees (root-loc edited-loc)))
       (if (> (-> parent z/node :key)
              (-> edited-loc z/node :key))
         (let [balanced-tree (balance-node edited-loc)
-              updated-heap (assoc heap :trees balanced-tree)]
-          (if (< new-key (-> balanced-tree (:minimum-pointer heap) :key))
+              updated-heap (assoc heap :trees balanced-tree)
+              cur-key (:key (find-min updated-heap))]
+          (if (< new-key cur-key)
+            ;; must call update-min because cannot now find decreased key node
             (update-min updated-heap)
             updated-heap))
-        edited-loc))))
+        (assoc heap :trees (root-loc edited-loc))))))
+
+(defn- loc-gt [x y]
+  (> (-> x z/node :key) (-> y z/node :key)))
+
+(defn- merge-degrees [roots-by-degree root]
+  (if-let [x (get roots-by-degree (degree root))]
+    (recur
+     (dissoc roots-by-degree (degree root))
+     (if (loc-gt root x)
+       (z/append-child x (z/node root))
+       (z/append-child root (z/node x))))
+    (assoc roots-by-degree (degree root) root)))
 
 (defprotocol IFibonacciHeap
   (heap-merge [this data key])
   (find-min [this])
+  (extract-min [this])
   (update-min [this])) ;; should be private, really
 
 (defrecord FibonacciHeap [minimum-pointer trees]
@@ -65,7 +91,7 @@
                                        {:data data :key key :marked false}))))
 
   (find-min [this]
-    (get (z/children trees) minimum-pointer))
+    (z/node (find-min-loc this)))
 
   (update-min [this]
     (let [[idx _] (reduce (fn [[s-idx smallest] [x-idx x]]
@@ -75,14 +101,31 @@
                           (map vector (range)
                                (z/children trees)))]
       (assoc this :minimum-pointer idx)))
+
+  (extract-min [this]
+    (let [min (find-min-loc this)
+          childless-loc (promote-to-root (-> this :trees) (-> min z/children))
+          childless-loc-heap (assoc this :trees childless-loc)
+          tree-without-min (z/remove (find-min-loc childless-loc-heap))
+          roots (map (fn [x] (create-zipper x))
+                     (z/children tree-without-min))
+          new-roots (map z/node
+                         (vals (reduce merge-degrees {} roots)))]
+
+      (update-min (assoc this :trees (promote-to-root (create-zipper) new-roots)))))
   )
 
-(defn- create-zipper []
-  (z/zipper (constantly true)
-            :children
-            (fn [node new-children]
-              (assoc node :children new-children))
-            {:children []}))
+(defn create-zipper
+  ([]
+     (create-zipper {:children []}))
+  ([root]
+     (z/zipper (constantly true)
+               :children
+               (fn [node new-children]
+                 (assoc node :children new-children))
+               root)))
 
 (defn create-heap []
   (FibonacciHeap. nil (create-zipper)))
+
+(defn -main [& args])
