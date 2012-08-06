@@ -94,7 +94,9 @@
                                        {:data data :key key :marked false}))))
 
   (find-min [this]
-    (z/node (find-min-loc this)))
+    (let [min-loc (find-min-loc this)]
+      (if min-loc
+        (z/node min-loc))))
 
   (update-min [this]
     (let [[idx _] (reduce (fn [[s-idx smallest] [x-idx x]]
