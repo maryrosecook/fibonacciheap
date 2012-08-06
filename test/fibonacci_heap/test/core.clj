@@ -6,10 +6,10 @@
 
 (declare add-children)
 
-(defn nnode [hash] {:key (-> hash :k)})
 
 (defn add-child [node child-hash]
-  (z/append-child node (nnode child-hash)))
+  (z/append-child node {:key (-> child-hash :k)
+                        :d (if (contains? child-hash :d) (-> child-hash :d) {})}))
 
 (defn make-tree [hash node]
   (root-loc
