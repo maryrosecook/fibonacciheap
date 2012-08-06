@@ -35,6 +35,29 @@
           (root-loc loc)
           (map (fn [x] (assoc x :marked false)) new-roots)))
 
+(defn search-proceed [loc key]
+  (and (not= nil loc)
+       (if (<= (-> loc z/node :key) key)
+         loc)))
+
+(defn search-next [loc filter-fn key]
+  (if (filter-fn (-> loc z/node))
+    loc
+    (let [next-loc (or
+                    (loop [p (z/down loc)]
+                      (if p
+                        (or (search-proceed p key)
+                            (recur (z/right p)))))
+                    (z/right loc)
+                    (loop [p loc]
+                      (if (z/up p)
+                        (or (z/right (z/up p))
+                            (recur (z/up p)))
+                        nil)))]
+      (if (nil? next-loc)
+        nil
+        (search-next next-loc filter-fn key)))))
+
 (defn- balance-node
   ([loc] (balance-node loc []))
   ([loc roots]
@@ -84,6 +107,7 @@
   (heap-merge [this data key])
   (find-min [this])
   (extract-min [this])
+  (search [this filter-fn key])
   (update-min [this])) ;; should be private, really
 
 (defrecord FibonacciHeap [minimum-pointer trees]
@@ -108,6 +132,7 @@
       (assoc this :minimum-pointer idx)))
 
   (extract-min [this]
+    "Get node with smallest key."
     (let [min (find-min-loc this)
           childless-loc (promote-to-root (-> this :trees) (-> min z/children))
           childless-loc-heap (assoc this :trees childless-loc)
@@ -121,6 +146,11 @@
                            (promote-to-root (create-zipper) new-roots)))
         (assoc (assoc this :trees (create-zipper))
           :minimum-pointer nil))))
+
+  (search [this filter-fn key]
+    "Return zipper loc of first node for which passed fn returns true.
+     Fibonacci Heaps are not designed for efficient search.  Beware."
+    (search-next (-> this :trees z/down) filter-fn key))
   )
 
 (defn create-zipper
