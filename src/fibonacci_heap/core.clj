@@ -16,9 +16,12 @@
         loc))))
 
 (defn- find-min-loc [heap]
-  (reduce (fn [node _] (-> node z/right))
-          (-> heap :trees z/down)
-          (range (-> heap :minimum-pointer))))
+  (let [minimum-pointer (-> heap :minimum-pointer)]
+    (if minimum-pointer
+      (reduce (fn [node _] (-> node z/right))
+              (-> heap :trees z/down)
+              (range minimum-pointer))
+      nil)))
 
 (defn- degree [loc]
   (-> loc z/children count))
