@@ -116,8 +116,11 @@
                      (z/children tree-without-min))
           new-roots (map z/node
                          (vals (reduce merge-degrees {} roots)))]
-
-      (update-min (assoc this :trees (promote-to-root (create-zipper) new-roots)))))
+      (if (> (count new-roots) 0)
+        (update-min (assoc this :trees
+                           (promote-to-root (create-zipper) new-roots)))
+        (assoc (assoc this :trees (create-zipper))
+          :minimum-pointer nil))))
   )
 
 (defn create-zipper
