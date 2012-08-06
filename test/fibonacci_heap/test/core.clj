@@ -237,6 +237,35 @@
                      [z/down z/right z/down z/right z/right z/right z/down z/right z/right])
                     60))))
 
+;; search
+
+(defn node-data-filter [data]
+  (fn [node] (= data (-> node :d))))
+
+(deftest test-find-first-root-node
+  (let [data "woo"
+        [heap _] (make-heap {:k 10 :d data})
+        loc (search heap (node-data-filter data) 10)]
+    (is (= (-> loc z/node :d) data))))
+
+(deftest test-find-second-root-node
+  (let [data "woo"
+        [heap _] (make-heap {:c [{:k 10} {:k 11 :d data}]})
+        loc (search heap (node-data-filter data) 11)]
+    (is (= (-> loc z/node :d) data))))
+
+(deftest test-find-first-node-one-layer-down
+  (let [data "woo"
+        [heap _] (make-heap {:k 10 :c [{:k 100 :d data}]})
+        loc (search heap (node-data-filter data) 100)]
+    (is (= (-> loc z/node :d) data))))
+
+(deftest test-find-node-two-layers-down-on-right
+  (let [data "woo"
+        [heap _] (make-heap {:k 10 :c [{:k 100} {:k 100 :c [{:k 1000} {:k 1001 :d data}]}]})
+        loc (search heap (node-data-filter data) 1001)]
+    (is (= (-> loc z/node :d) data))))
+
 ;; sanity
 
 (deftest test-get-expected-result-by-appending-child-subtree-to-tree
