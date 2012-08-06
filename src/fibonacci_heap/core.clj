@@ -111,7 +111,7 @@
     (let [min (find-min-loc this)
           childless-loc (promote-to-root (-> this :trees) (-> min z/children))
           childless-loc-heap (assoc this :trees childless-loc)
-          tree-without-min (z/remove (find-min-loc childless-loc-heap))
+          tree-without-min (root-loc (z/remove (find-min-loc childless-loc-heap)))
           roots (map (fn [x] (create-zipper x))
                      (z/children tree-without-min))
           new-roots (map z/node
