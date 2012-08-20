@@ -44,7 +44,7 @@ There is no increase key operation.
 
 ### Search
 
-Fibonacci heaps are not designed to be searched efficiently.  However, this library includes a search that is better than a linear array walk of the nodes.
+Fibonacci heaps are not designed to be searched efficiently.  However, this library includes a search that is faster than a linear array walk of the nodes.
 
 Call `search` and pass a heap, a filter function and the key of the node you are looking for.  The filter function should return `true` if it is passed the node data you are looking for, and `false` otherwise.  For example:
 
